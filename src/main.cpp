@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <cmath>
+#include <cctype>
 #include "psat_engine.h"
 
 extern "C" void _fini(void) {}
@@ -53,14 +54,30 @@ enum Mode {
     MODE_PSAT_PERCENT,
     MODE_PSAT_SECTOR,
     MODE_PSAT_TRIG,
-    MODE_PSAT_QUADRATIC
+    MODE_PSAT_QUADRATIC,
+    MODE_COUNT
+};
+
+struct InputField {
+    char label[16];
+    char text[16];
+    float getValue() const { return atof(text); }
 };
 
 class NspireAI {
 private:
     Mode current_mode = MODE_PHYSICS_2D;
+    int selected_field = 0;
+
+    // Field storage per mode
+    InputField proj_fields[3] = { {"V0 (M/S)", "25.0"}, {"ANG (DEG)", "35.0"}, {"Y0 (M)", "2.0"} };
+    InputField pct_fields[2]  = { {"OLD VAL", "50.0"}, {"NEW VAL", "75.0"} };
+    InputField sec_fields[2]  = { {"RADIUS", "10.0"}, {"ANGLE", "60.0"} };
+    InputField trig_fields[2] = { {"OPPOSITE", "3.0"}, {"ADJACENT", "4.0"} };
+    InputField quad_fields[3] = { {"A COEFF", "1.0"}, {"B COEFF", "-5.0"}, {"C COEFF", "6.0"} };
 
     void drawChar(int x, int y, char c, uint16_t color) {
+        c = std::toupper(c);
         if (c < 32 || c > 90) c = '?';
         int idx = c - 32;
         for (int r = 0; r < 8; r++) {
@@ -85,7 +102,82 @@ private:
         }
     }
 
-    void solve2DProjectile(float v0, float angle_deg, float y0) {
+    void drawRect(int x, int y, int w, int h, uint16_t color) {
+        for (int j = y; j < y + h; j++) {
+            for (int i = x; i < x + w; i++) {
+                if (i >= 0 && i < SCREEN_W && j >= 0 && j < SCREEN_H) {
+                    if (i == x || i == x + w - 1 || j == y || j == y + h - 1) {
+                        framebuffer[j * SCREEN_W + i] = color;
+                    }
+                }
+            }
+        }
+    }
+
+    void processKeypad(InputField* fields, int num_fields) {
+        if (isKeyPressed(KEY_NSPIRE_UP)) {
+            selected_field = (selected_field - 1 + num_fields) % num_fields;
+            msleep(150);
+            return;
+        }
+        if (isKeyPressed(KEY_NSPIRE_DOWN)) {
+            selected_field = (selected_field + 1) % num_fields;
+            msleep(150);
+            return;
+        }
+
+        InputField& active = fields[selected_field];
+        int len = strlen(active.text);
+
+        // Character entry
+        char charToAppend = 0;
+        if (isKeyPressed(KEY_NSPIRE_0)) charToAppend = '0';
+        else if (isKeyPressed(KEY_NSPIRE_1)) charToAppend = '1';
+        else if (isKeyPressed(KEY_NSPIRE_2)) charToAppend = '2';
+        else if (isKeyPressed(KEY_NSPIRE_3)) charToAppend = '3';
+        else if (isKeyPressed(KEY_NSPIRE_4)) charToAppend = '4';
+        else if (isKeyPressed(KEY_NSPIRE_5)) charToAppend = '5';
+        else if (isKeyPressed(KEY_NSPIRE_6)) charToAppend = '6';
+        else if (isKeyPressed(KEY_NSPIRE_7)) charToAppend = '7';
+        else if (isKeyPressed(KEY_NSPIRE_8)) charToAppend = '8';
+        else if (isKeyPressed(KEY_NSPIRE_9)) charToAppend = '9';
+        else if (isKeyPressed(KEY_NSPIRE_PERIOD)) charToAppend = '.';
+        else if (isKeyPressed(KEY_NSPIRE_MINUS)) charToAppend = '-';
+
+        if (charToAppend != 0 && len < 12) {
+            active.text[len] = charToAppend;
+            active.text[len + 1] = '\0';
+            msleep(130);
+        }
+
+        // Backspace / Delete
+        if (isKeyPressed(KEY_NSPIRE_DEL) && len > 0) {
+            active.text[len - 1] = '\0';
+            msleep(130);
+        }
+    }
+
+    void renderFields(InputField* fields, int num_fields, int start_y) {
+        for (int i = 0; i < num_fields; i++) {
+            int y = start_y + (i * 22);
+            uint16_t boxColor = (i == selected_field) ? 0xFFE0 : 0x39E7;
+            uint16_t textColor = (i == selected_field) ? 0xFFFF : 0x9CD6;
+
+            char buf[32];
+            snprintf(buf, sizeof(buf), "%-9s: %s", fields[i].label, fields[i].text);
+            drawText(15, y + 3, buf, textColor);
+            drawRect(10, y, 200, 18, boxColor);
+        }
+    }
+
+    void solve2DProjectile() {
+        drawText(10, 8, "=== NSPIRE AI: 2D PROJECTILE ===", 0x07E0);
+        renderFields(proj_fields, 3, 30);
+
+        float v0 = proj_fields[0].getValue();
+        float angle_deg = proj_fields[1].getValue();
+        float y0 = proj_fields[2].getValue();
+
         float rad = angle_deg * (PI / 180.0f);
         float vx = v0 * cosf(rad);
         float vy0 = v0 * sinf(rad);
@@ -94,38 +186,50 @@ private:
         float B = vy0;
         float C = y0;
         float disc = B * B - 4.0f * A * C;
-        float t_flight = (-B - sqrtf(disc)) / (2.0f * A);
+        float t_flight = (disc >= 0) ? (-B - sqrtf(disc)) / (2.0f * A) : 0.0f;
 
         float range = vx * t_flight;
         float h_max = y0 + (vy0 * vy0) / (2.0f * GRAVITY);
 
         char buf[64];
-        drawText(10, 10, "=== NSPIRE AI: 2D PROJECTILE ===", 0x07E0);
-        
-        snprintf(buf, sizeof(buf), "INPUT: V0=%.1FM/S ANG=%.1F DEG Y0=%.1FM", v0, angle_deg, y0);
-        drawText(10, 35, buf, 0xFFFF);
-
-        snprintf(buf, sizeof(buf), "VX  = %.2F M/S", vx);
-        drawText(10, 65, buf, 0xFFE0);
-
-        snprintf(buf, sizeof(buf), "VY0 = %.2F M/S", vy0);
-        drawText(10, 85, buf, 0xFFE0);
-
-        snprintf(buf, sizeof(buf), "TIME OF FLIGHT = %.2F S", t_flight);
-        drawText(10, 115, buf, 0x07FF);
-
-        snprintf(buf, sizeof(buf), "MAX HEIGHT     = %.2F M", h_max);
-        drawText(10, 135, buf, 0x07FF);
-
-        snprintf(buf, sizeof(buf), "MAX RANGE      = %.2F M", range);
-        drawText(10, 155, buf, 0x07FF);
+        drawText(10, 105, "RESULTS:", 0x07FF);
+        snprintf(buf, sizeof(buf), "VX=%.2F M/S  VY0=%.2F M/S", vx, vy0);
+        drawText(10, 125, buf, 0xFFFF);
+        snprintf(buf, sizeof(buf), "FLIGHT TIME = %.2F S", t_flight);
+        drawText(10, 145, buf, 0xFFE0);
+        snprintf(buf, sizeof(buf), "MAX HEIGHT  = %.2F M", h_max);
+        drawText(10, 165, buf, 0xFFE0);
+        snprintf(buf, sizeof(buf), "MAX RANGE   = %.2F M", range);
+        drawText(10, 185, buf, 0xFFE0);
     }
 
-    void displayPSATResult(const PSATResult& res) {
-        drawText(10, 10, res.title, 0x07E0);
-        drawText(10, 45, res.line1, 0xFFFF);
-        drawText(10, 80, res.line2, 0xFFE0);
-        drawText(10, 115, res.line3, 0x07FF);
+    void solvePSATDisplay() {
+        PSATResult res;
+        InputField* fields = nullptr;
+        int num_fields = 0;
+
+        if (current_mode == MODE_PSAT_PERCENT) {
+            fields = pct_fields; num_fields = 2;
+            res = PSATEngine::solvePercent(pct_fields[0].getValue(), pct_fields[1].getValue());
+        } else if (current_mode == MODE_PSAT_SECTOR) {
+            fields = sec_fields; num_fields = 2;
+            res = PSATEngine::solveSector(sec_fields[0].getValue(), sec_fields[1].getValue());
+        } else if (current_mode == MODE_PSAT_TRIG) {
+            fields = trig_fields; num_fields = 2;
+            res = PSATEngine::solveTrig(trig_fields[0].getValue(), trig_fields[1].getValue());
+        } else if (current_mode == MODE_PSAT_QUADRATIC) {
+            fields = quad_fields; num_fields = 3;
+            res = PSATEngine::solveQuadratic(quad_fields[0].getValue(), quad_fields[1].getValue(), quad_fields[2].getValue());
+        }
+
+        drawText(10, 8, res.title, 0x07E0);
+        renderFields(fields, num_fields, 30);
+
+        int res_y = 30 + (num_fields * 22) + 10;
+        drawText(10, res_y, "RESULTS:", 0x07FF);
+        drawText(10, res_y + 20, res.line1, 0xFFFF);
+        drawText(10, res_y + 40, res.line2, 0xFFE0);
+        drawText(10, res_y + 60, res.line3, 0x07FF);
     }
 
 public:
@@ -133,37 +237,37 @@ public:
         while (true) {
             if (isKeyPressed(KEY_NSPIRE_ESC)) break;
 
-            if (isKeyPressed(KEY_NSPIRE_1)) current_mode = MODE_PHYSICS_2D;
-            if (isKeyPressed(KEY_NSPIRE_2)) current_mode = MODE_PSAT_PERCENT;
-            if (isKeyPressed(KEY_NSPIRE_3)) current_mode = MODE_PSAT_SECTOR;
-            if (isKeyPressed(KEY_NSPIRE_4)) current_mode = MODE_PSAT_TRIG;
-            if (isKeyPressed(KEY_NSPIRE_5)) current_mode = MODE_PSAT_QUADRATIC;
+            // Mode switching via Left / Right
+            if (isKeyPressed(KEY_NSPIRE_LEFT)) {
+                current_mode = static_cast<Mode>((current_mode - 1 + MODE_COUNT) % MODE_COUNT);
+                selected_field = 0;
+                msleep(180);
+            } else if (isKeyPressed(KEY_NSPIRE_RIGHT)) {
+                current_mode = static_cast<Mode>((current_mode + 1) % MODE_COUNT);
+                selected_field = 0;
+                msleep(180);
+            }
+
+            // Keypad digit entry
+            if (current_mode == MODE_PHYSICS_2D) processKeypad(proj_fields, 3);
+            else if (current_mode == MODE_PSAT_PERCENT) processKeypad(pct_fields, 2);
+            else if (current_mode == MODE_PSAT_SECTOR) processKeypad(sec_fields, 2);
+            else if (current_mode == MODE_PSAT_TRIG) processKeypad(trig_fields, 2);
+            else if (current_mode == MODE_PSAT_QUADRATIC) processKeypad(quad_fields, 3);
 
             memset(framebuffer, 0, sizeof(framebuffer));
 
-            switch (current_mode) {
-                case MODE_PHYSICS_2D:
-                    solve2DProjectile(25.0f, 35.0f, 2.0f);
-                    break;
-                case MODE_PSAT_PERCENT:
-                    displayPSATResult(PSATEngine::solvePercent(50.0f, 75.0f));
-                    break;
-                case MODE_PSAT_SECTOR:
-                    displayPSATResult(PSATEngine::solveSector(10.0f, 60.0f));
-                    break;
-                case MODE_PSAT_TRIG:
-                    displayPSATResult(PSATEngine::solveTrig(3.0f, 4.0f));
-                    break;
-                case MODE_PSAT_QUADRATIC:
-                    displayPSATResult(PSATEngine::solveQuadratic(1.0f, -5.0f, 6.0f));
-                    break;
+            if (current_mode == MODE_PHYSICS_2D) {
+                solve2DProjectile();
+            } else {
+                solvePSATDisplay();
             }
 
-            drawText(5, 210, "[1]2D [2]PCT [3]SEC [4]TRIG [5]QUAD", 0x7BEF);
-            drawText(5, 225, "PRESS [ESC] TO EXIT", 0xF800);
+            drawText(5, 212, "L/R: MODE | UP/DN: FIELD | 0-9: EDIT", 0x7BEF);
+            drawText(5, 226, "PRESS [ESC] TO EXIT", 0xF800);
 
             lcd_blit(framebuffer, SCR_320x240_565);
-            msleep(50);
+            msleep(20);
         }
     }
 };
