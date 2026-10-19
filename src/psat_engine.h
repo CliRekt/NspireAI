@@ -1,5 +1,4 @@
 #ifndef PSAT_ENGINE_H
-#ifndef PSAT_ENGINE_H
 #define PSAT_ENGINE_H
 
 #include <cmath>
@@ -20,7 +19,7 @@ public:
         snprintf(res.title, sizeof(res.title), "PSAT: PERCENT CHANGE");
         float pct_change = ((new_val - old_val) / old_val) * 100.0f;
         
-        snprintf(res.line1, sizeof(res.line1), "OLD: %.2F  NEW: %.2F", old_val, new_val);
+        snprintf(res.line1, sizeof(res.line1), "OLD: %.2F   NEW: %.2F", old_val, new_val);
         snprintf(res.line2, sizeof(res.line2), "CHANGE: %+.2F%%", pct_change);
         snprintf(res.line3, sizeof(res.line3), "MULTIPLICATION FACTOR: %.4F", new_val / old_val);
         return res;
@@ -49,7 +48,26 @@ public:
 
         snprintf(res.line1, sizeof(res.line1), "HYPOTENUSE = %.3F", hyp);
         snprintf(res.line2, sizeof(res.line2), "ANGLE THETA= %.2F DEG", angle_deg);
-        snprintf(res.line3, sizeof(res.line3), "SIN=%.2F COS=%.2F TAN=%.2F", opp/hyp, adj/hyp, opp/adj);
+        snprintf(res.line3, sizeof(res.line3), "SIN=%.2F  COS=%.2F  TAN=%.2F", opp/hyp, adj/hyp, opp/adj);
+        return res;
+    }
+
+    // 4. Quadratic Solver
+    static PSATResult solveQuadratic(float a, float b, float c) {
+        PSATResult res;
+        snprintf(res.title, sizeof(res.title), "PSAT: QUADRATIC SOLVER");
+        snprintf(res.line1, sizeof(res.line1), "EQ: %.1FX^2 + %.1FX + %.1F = 0", a, b, c);
+        float disc = b * b - 4.0f * a * c;
+        if (disc >= 0) {
+            float x1 = (-b + sqrtf(disc)) / (2.0f * a);
+            float x2 = (-b - sqrtf(disc)) / (2.0f * a);
+            snprintf(res.line2, sizeof(res.line2), "ROOTS: X1=%.3F, X2=%.3F", x1, x2);
+        } else {
+            snprintf(res.line2, sizeof(res.line2), "DISC=%.2F (NO REAL ROOTS)", disc);
+        }
+        float h = -b / (2.0f * a);
+        float k = a * h * h + b * h + c;
+        snprintf(res.line3, sizeof(res.line3), "VERTEX (H,K) = (%.2F, %.2F)", h, k);
         return res;
     }
 };
