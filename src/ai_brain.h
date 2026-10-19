@@ -31,7 +31,6 @@ private:
         return count;
     }
 
-    // Exact Radical Simplifier Engine: sqrt(n) -> A * sqrt(B)
     static void simplifyRadical(int n, int &out_outside, int &out_inside) {
         if (n < 0) n = -n;
         out_outside = 1;
@@ -45,14 +44,12 @@ private:
         }
     }
 
-    // Great Common Divisor helper for reducing fractions
     static int gcd(int a, int b) {
         a = abs(a); b = abs(b);
         while (b) { int t = b; b = a % b; a = t; }
         return a;
     }
 
-    // Unit Conversions Engine
     static bool tryUnitConversion(const char* lower, float val, char* out_reply, size_t max_len) {
         if (contains(lower, "mph to m/s") || contains(lower, "mph to ms")) {
             snprintf(out_reply, max_len, "CONV: %.2F MPH = %.2F M/S", val, val * 0.44704f);
@@ -118,27 +115,23 @@ public:
             return;
         }
 
-        // ==========================================
         // 2. DELTAMATH: SIMPLIFYING RADICALS
-        // ==========================================
         if (contains(lower, "rad") || contains(lower, "sqrt") || contains(lower, "simplify")) {
             int rad_val = (num_count >= 1) ? static_cast<int>(nums[0]) : 72;
             int out_a = 1, out_b = rad_val;
             simplifyRadical(rad_val, out_a, out_b);
 
             if (out_b == 1) {
-                snprintf(out_reply, max_len, "RADICAL: SQRT(%d) = %d (PERFECT SQUARE)", rad_val, out_a);
+                snprintf(out_reply, max_len, "RADICAL: SQRT(%d) = %d", rad_val, out_a);
             } else if (out_a == 1) {
-                snprintf(out_reply, max_len, "RADICAL: SQRT(%d) CANNOT BE SIMPLIFIED FURTHER", rad_val);
+                snprintf(out_reply, max_len, "RADICAL: SQRT(%d) (CANNOT BE SIMPLIFIED)", rad_val);
             } else {
                 snprintf(out_reply, max_len, "RADICAL: SQRT(%d) = %d*SQRT(%d)", rad_val, out_a, out_b);
             }
             return;
         }
 
-        // ==========================================
         // 3. DELTAMATH: COMPLETING THE SQUARE
-        // ==========================================
         if (contains(lower, "cts") || contains(lower, "complete") || contains(lower, "square")) {
             float a = (num_count >= 1) ? nums[0] : 1.0f;
             float b = (num_count >= 2) ? nums[1] : 6.0f;
@@ -148,13 +141,11 @@ public:
             float add_val = (b / (2.0f * a)) * (b / (2.0f * a));
             float rhs = add_val - (c / a);
 
-            snprintf(out_reply, max_len, "CTS: (X - %.2F)^2 = %.2F | VALUE ADDED TO BOTH SIDES = %.2F", -h, rhs, add_val);
+            snprintf(out_reply, max_len, "CTS: (X - %.2F)^2 = %.2F | ADD TO BOTH SIDES = %.2F", -h, rhs, add_val);
             return;
         }
 
-        // ==========================================
-        // 4. DELTAMATH: FACTOR TRINOMIALS (a=1 & a>1)
-        // ==========================================
+        // 4. DELTAMATH: FACTOR TRINOMIALS
         if (contains(lower, "factor")) {
             int a = (num_count >= 1) ? static_cast<int>(nums[0]) : 2;
             int b = (num_count >= 2) ? static_cast<int>(nums[1]) : 5;
@@ -179,14 +170,12 @@ public:
                          p2, (q2 >= 0) ? "-" : "+", abs(q2),
                          static_cast<float>(q1)/p1, static_cast<float>(q2)/p2);
             } else {
-                snprintf(out_reply, max_len, "FACTOR: NOT FACTORABLE OVER INTEGERS (USE QUADRATIC FORMULA)");
+                snprintf(out_reply, max_len, "FACTOR: NOT FACTORABLE OVER INTEGERS");
             }
             return;
         }
 
-        // ==========================================
         // 5. DELTAMATH: DISCRIMINANT & NATURE OF ROOTS
-        // ==========================================
         if (contains(lower, "nature") || contains(lower, "discrim")) {
             float a = (num_count >= 1) ? nums[0] : 1.0f;
             float b = (num_count >= 2) ? nums[1] : 2.0f;
@@ -202,16 +191,14 @@ public:
                     snprintf(out_reply, max_len, "NATURE: DISC = %.0F > 0 | 2 REAL IRRATIONAL ROOTS", disc);
                 }
             } else if (disc == 0) {
-                snprintf(out_reply, max_len, "NATURE: DISC = 0 | 1 REAL DOUBLE ROOT (VERTEX ON X-AXIS)");
+                snprintf(out_reply, max_len, "NATURE: DISC = 0 | 1 REAL DOUBLE ROOT");
             } else {
-                snprintf(out_reply, max_len, "NATURE: DISC = %.0F < 0 | 2 COMPLEX/IMAGINARY ROOTS", disc);
+                snprintf(out_reply, max_len, "NATURE: DISC = %.0F < 0 | 2 COMPLEX ROOTS", disc);
             }
             return;
         }
 
-        // ==========================================
-        // 6. DELTAMATH: QUADRATIC WORD PROBLEMS (PROFIT / GRAVITY)
-        // ==========================================
+        // 6. DELTAMATH: QUADRATIC WORD PROBLEMS (PROFIT / GRAVITY / HEIGHT)
         if (contains(lower, "profit") || contains(lower, "gravity") || contains(lower, "height")) {
             float a = (num_count >= 1) ? nums[0] : -16.0f;
             float b = (num_count >= 2) ? nums[1] : 64.0f;
@@ -223,13 +210,11 @@ public:
             float disc = b * b - 4.0f * a * c;
             float t_land = (disc >= 0) ? (-b - sqrtf(disc)) / (2.0f * a) : 0.0f;
 
-            snprintf(out_reply, max_len, "WORD PROBLEM: MAX AT T=%.2FS (VAL=%.2F) | LANDS/ZERO AT T=%.2FS", t_peak, h_max, t_land);
+            snprintf(out_reply, max_len, "WORD PROB: MAX=%.2F AT T=%.2FS | GROUND/ZERO AT T=%.2FS", h_max, t_peak, t_land);
             return;
         }
 
-        // ==========================================
-        // 7. GENERAL QUADRATIC SOLVER (EXACT & DECIMAL)
-        // ==========================================
+        // 7. GENERAL QUADRATIC SOLVER (EXACT RADICALS & DECIMALS)
         if (contains(lower, "quad") || contains(lower, "vertex") || contains(lower, "root") || contains(lower, "x^2") || contains(lower, "solve")) {
             float a = (num_count >= 1) ? nums[0] : 1.0f;
             float b = (num_count >= 2) ? nums[1] : -6.0f;
@@ -262,9 +247,7 @@ public:
             return;
         }
 
-        // ==========================================
-        // 8. PHYSICS 2D MOTION & TRIG
-        // ==========================================
+        // 8. PHYSICS & TRIG
         if (contains(lower, "project") || contains(lower, "launch") || contains(lower, "angle") || contains(lower, "v0")) {
             float v0 = (num_count >= 1) ? nums[0] : 25.0f;
             float angle = (num_count >= 2) ? nums[1] : 45.0f;
@@ -278,7 +261,7 @@ public:
             float range = vx * t_flight;
             float h_max = y0 + (vy0 * vy0) / (2.0f * GRAVITY);
 
-            snprintf(out_reply, max_len, "PHYSICS 2D: TIME=%.2FS | RANGE=%.2FM | MAX H=%.2FM (VX=%.1F, VY=%.1F)", t_flight, range, h_max, vx, vy0);
+            snprintf(out_reply, max_len, "PHYSICS 2D: TIME=%.2FS | RANGE=%.2FM | MAX H=%.2FM", t_flight, range, h_max);
             return;
         }
 
@@ -293,8 +276,8 @@ public:
             return;
         }
 
-        // Fallback response
-        snprintf(out_reply, max_len, "TRY: 'FACTOR 2 5 -3' | 'CTS 1 6 -7' | 'RAD 72' | 'NATURE 1 2 5'");
+        // Fallback
+        snprintf(out_reply, max_len, "TRY: 'FACTOR 2 5 -3' | 'CTS 1 6 -7' | 'RAD 72' | 'QUAD 1 -6 4'");
     }
 };
 
