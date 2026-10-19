@@ -31,9 +31,28 @@ private:
         return count;
     }
 
-    // ==========================================
-    // UNIT CONVERSIONS ENGINE
-    // ==========================================
+    // Exact Radical Simplifier Engine: sqrt(n) -> A * sqrt(B)
+    static void simplifyRadical(int n, int &out_outside, int &out_inside) {
+        if (n < 0) n = -n;
+        out_outside = 1;
+        out_inside = n;
+        for (int i = static_cast<int>(sqrt(n)); i >= 2; i--) {
+            if (n % (i * i) == 0) {
+                out_outside = i;
+                out_inside = n / (i * i);
+                break;
+            }
+        }
+    }
+
+    // Great Common Divisor helper for reducing fractions
+    static int gcd(int a, int b) {
+        a = abs(a); b = abs(b);
+        while (b) { int t = b; b = a % b; a = t; }
+        return a;
+    }
+
+    // Unit Conversions Engine
     static bool tryUnitConversion(const char* lower, float val, char* out_reply, size_t max_len) {
         if (contains(lower, "mph to m/s") || contains(lower, "mph to ms")) {
             snprintf(out_reply, max_len, "CONV: %.2F MPH = %.2F M/S", val, val * 0.44704f);
@@ -100,85 +119,151 @@ public:
         }
 
         // ==========================================
-        // 2. UNIT 2: QUADRATICS (COMPLETE CURRICULUM)
+        // 2. DELTAMATH: SIMPLIFYING RADICALS
         // ==========================================
+        if (contains(lower, "rad") || contains(lower, "sqrt") || contains(lower, "simplify")) {
+            int rad_val = (num_count >= 1) ? static_cast<int>(nums[0]) : 72;
+            int out_a = 1, out_b = rad_val;
+            simplifyRadical(rad_val, out_a, out_b);
 
-        // Lesson 2 & 5: Quadratic Forms & Graphing Critical Features
-        if (contains(lower, "form") || contains(lower, "convert") || contains(lower, "vertex form")) {
-            float a = (num_count >= 1) ? nums[0] : 1.0f;
-            float b = (num_count >= 2) ? nums[1] : -4.0f;
-            float c = (num_count >= 3) ? nums[2] : 3.0f;
-
-            float h = -b / (2.0f * a);
-            float k = a * h * h + b * h + c;
-            snprintf(out_reply, max_len, "VERTEX FORM: Y = %.1F(X - %.2F)^2 + (%.2F) | AOS: X = %.2F | Y-INT: (0, %.1F)", a, h, k, h, c);
+            if (out_b == 1) {
+                snprintf(out_reply, max_len, "RADICAL: SQRT(%d) = %d (PERFECT SQUARE)", rad_val, out_a);
+            } else if (out_a == 1) {
+                snprintf(out_reply, max_len, "RADICAL: SQRT(%d) CANNOT BE SIMPLIFIED FURTHER", rad_val);
+            } else {
+                snprintf(out_reply, max_len, "RADICAL: SQRT(%d) = %d*SQRT(%d)", rad_val, out_a, out_b);
+            }
             return;
         }
 
-        // Lesson 7: Discriminant Analysis
-        if (contains(lower, "discrim") || contains(lower, "solutions")) {
+        // ==========================================
+        // 3. DELTAMATH: COMPLETING THE SQUARE
+        // ==========================================
+        if (contains(lower, "cts") || contains(lower, "complete") || contains(lower, "square")) {
+            float a = (num_count >= 1) ? nums[0] : 1.0f;
+            float b = (num_count >= 2) ? nums[1] : 6.0f;
+            float c = (num_count >= 3) ? nums[2] : -7.0f;
+
+            float h = -b / (2.0f * a);
+            float add_val = (b / (2.0f * a)) * (b / (2.0f * a));
+            float rhs = add_val - (c / a);
+
+            snprintf(out_reply, max_len, "CTS: (X - %.2F)^2 = %.2F | VALUE ADDED TO BOTH SIDES = %.2F", -h, rhs, add_val);
+            return;
+        }
+
+        // ==========================================
+        // 4. DELTAMATH: FACTOR TRINOMIALS (a=1 & a>1)
+        // ==========================================
+        if (contains(lower, "factor")) {
+            int a = (num_count >= 1) ? static_cast<int>(nums[0]) : 2;
+            int b = (num_count >= 2) ? static_cast<int>(nums[1]) : 5;
+            int c = (num_count >= 3) ? static_cast<int>(nums[2]) : -3;
+
+            int disc = b * b - 4 * a * c;
+            int sq = static_cast<int>(sqrt(disc));
+
+            if (disc >= 0 && sq * sq == disc) {
+                int num1 = -b + sq;
+                int den1 = 2 * a;
+                int g1 = gcd(num1, den1);
+                int p1 = den1 / g1, q1 = num1 / g1;
+
+                int num2 = -b - sq;
+                int den2 = 2 * a;
+                int g2 = gcd(num2, den2);
+                int p2 = den2 / g2, q2 = num2 / g2;
+
+                snprintf(out_reply, max_len, "FACTOR: (%dX %s %d)(%dX %s %d) | ROOTS: X = %.2F, %.2F",
+                         p1, (q1 >= 0) ? "-" : "+", abs(q1),
+                         p2, (q2 >= 0) ? "-" : "+", abs(q2),
+                         static_cast<float>(q1)/p1, static_cast<float>(q2)/p2);
+            } else {
+                snprintf(out_reply, max_len, "FACTOR: NOT FACTORABLE OVER INTEGERS (USE QUADRATIC FORMULA)");
+            }
+            return;
+        }
+
+        // ==========================================
+        // 5. DELTAMATH: DISCRIMINANT & NATURE OF ROOTS
+        // ==========================================
+        if (contains(lower, "nature") || contains(lower, "discrim")) {
             float a = (num_count >= 1) ? nums[0] : 1.0f;
             float b = (num_count >= 2) ? nums[1] : 2.0f;
             float c = (num_count >= 3) ? nums[2] : 5.0f;
 
             float disc = b * b - 4.0f * a * c;
+            int sq = static_cast<int>(sqrt(fabsf(disc)));
+
             if (disc > 0) {
-                snprintf(out_reply, max_len, "DISCRIMINANT = %.2F > 0 | 2 REAL RATIONAL/IRRATIONAL SOLUTIONS", disc);
+                if (sq * sq == static_cast<int>(disc)) {
+                    snprintf(out_reply, max_len, "NATURE: DISC = %.0F > 0 | 2 REAL RATIONAL ROOTS", disc);
+                } else {
+                    snprintf(out_reply, max_len, "NATURE: DISC = %.0F > 0 | 2 REAL IRRATIONAL ROOTS", disc);
+                }
             } else if (disc == 0) {
-                snprintf(out_reply, max_len, "DISCRIMINANT = 0 | 1 REAL REPEATED SOLUTION (VERTEX ON X-AXIS)");
+                snprintf(out_reply, max_len, "NATURE: DISC = 0 | 1 REAL DOUBLE ROOT (VERTEX ON X-AXIS)");
             } else {
-                snprintf(out_reply, max_len, "DISCRIMINANT = %.2F < 0 | 2 COMPLEX/IMAGINARY SOLUTIONS", disc);
+                snprintf(out_reply, max_len, "NATURE: DISC = %.0F < 0 | 2 COMPLEX/IMAGINARY ROOTS", disc);
             }
             return;
         }
 
-        // Lesson 8: Area Word Problems (Rectangle dimensions: A = L*W)
-        if (contains(lower, "area") || contains(lower, "rectangle") || contains(lower, "garden")) {
-            float target_area = (num_count >= 1) ? nums[0] : 24.0f;
-            float diff = (num_count >= 2) ? nums[1] : 2.0f; // length is 'diff' greater than width
+        // ==========================================
+        // 6. DELTAMATH: QUADRATIC WORD PROBLEMS (PROFIT / GRAVITY)
+        // ==========================================
+        if (contains(lower, "profit") || contains(lower, "gravity") || contains(lower, "height")) {
+            float a = (num_count >= 1) ? nums[0] : -16.0f;
+            float b = (num_count >= 2) ? nums[1] : 64.0f;
+            float c = (num_count >= 3) ? nums[2] : 80.0f;
 
-            // w * (w + diff) = target_area => w^2 + diff*w - target_area = 0
-            float disc = diff * diff + 4.0f * target_area;
-            float w = (-diff + sqrtf(disc)) / 2.0f;
-            float l = w + diff;
-            snprintf(out_reply, max_len, "AREA RECTANGLE: WIDTH = %.2F, LENGTH = %.2F | AREA = %.1F", w, l, target_area);
+            float t_peak = -b / (2.0f * a);
+            float h_max = a * t_peak * t_peak + b * t_peak + c;
+
+            float disc = b * b - 4.0f * a * c;
+            float t_land = (disc >= 0) ? (-b - sqrtf(disc)) / (2.0f * a) : 0.0f;
+
+            snprintf(out_reply, max_len, "WORD PROBLEM: MAX AT T=%.2FS (VAL=%.2F) | LANDS/ZERO AT T=%.2FS", t_peak, h_max, t_land);
             return;
         }
 
-        // Lesson 8: Consecutive Integers Word Problems (x*(x+1) or x*(x+2))
-        if (contains(lower, "consecutive") || contains(lower, "product")) {
-            float prod = (num_count >= 1) ? nums[0] : 168.0f;
-            // Assume even/odd consecutive: x*(x+2) = prod => x^2 + 2x - prod = 0
-            float disc = 4.0f + 4.0f * prod;
-            float x1 = (-2.0f + sqrtf(disc)) / 2.0f;
-            snprintf(out_reply, max_len, "CONSECUTIVE EVEN/ODD: INTEGERS ARE %.0F AND %.0F (PROD=%.0F)", x1, x1 + 2.0f, prod);
-            return;
-        }
-
-        // General Quadratic Solver (Lessons 1, 3, 4, 7)
+        // ==========================================
+        // 7. GENERAL QUADRATIC SOLVER (EXACT & DECIMAL)
+        // ==========================================
         if (contains(lower, "quad") || contains(lower, "vertex") || contains(lower, "root") || contains(lower, "x^2") || contains(lower, "solve")) {
             float a = (num_count >= 1) ? nums[0] : 1.0f;
-            float b = (num_count >= 2) ? nums[1] : -5.0f;
-            float c = (num_count >= 3) ? nums[2] : 6.0f;
+            float b = (num_count >= 2) ? nums[1] : -6.0f;
+            float c = (num_count >= 3) ? nums[2] : 4.0f;
 
             float disc = b * b - 4.0f * a * c;
             float h = -b / (2.0f * a);
             float k = a * h * h + b * h + c;
 
             if (disc >= 0) {
+                int out_a = 1, out_b = static_cast<int>(disc);
+                simplifyRadical(static_cast<int>(disc), out_a, out_b);
+
                 float x1 = (-b + sqrtf(disc)) / (2.0f * a);
                 float x2 = (-b - sqrtf(disc)) / (2.0f * a);
-                snprintf(out_reply, max_len, "QUAD: ROOTS X1=%.2F, X2=%.2F | VERTEX (H,K)=(%.2F, %.2F)", x1, x2, h, k);
+
+                if (out_b == 1 || out_b == 0) {
+                    snprintf(out_reply, max_len, "QUAD: X = %.2F, %.2F | VERTEX: (%.2F, %.2F)", x1, x2, h, k);
+                } else {
+                    snprintf(out_reply, max_len, "EXACT: (%.0F +/- %d*SQRT(%d))/%.0F | DEC: %.2F, %.2F", -b, out_a, out_b, 2.0f*a, x1, x2);
+                }
             } else {
+                int out_a = 1, out_b = static_cast<int>(-disc);
+                simplifyRadical(static_cast<int>(-disc), out_a, out_b);
                 float realPart = -b / (2.0f * a);
                 float imagPart = sqrtf(-disc) / (2.0f * a);
-                snprintf(out_reply, max_len, "QUAD: COMPLEX ROOTS = %.2F +/- %.2FI | VERTEX=(%.2F, %.2F)", realPart, imagPart, h, k);
+
+                snprintf(out_reply, max_len, "COMPLEX: X = %.2F +/- %.2FI | EXACT: (%.0F +/- %d*SQRT(%d)I)/%.0F", realPart, imagPart, -b, out_a, out_b, 2.0f*a);
             }
             return;
         }
 
         // ==========================================
-        // 3. PHYSICS & KINEMATICS
+        // 8. PHYSICS 2D MOTION & TRIG
         // ==========================================
         if (contains(lower, "project") || contains(lower, "launch") || contains(lower, "angle") || contains(lower, "v0")) {
             float v0 = (num_count >= 1) ? nums[0] : 25.0f;
@@ -197,16 +282,6 @@ public:
             return;
         }
 
-        if (contains(lower, "force") || contains(lower, "f=ma") || contains(lower, "accel")) {
-            float m = (num_count >= 1) ? nums[0] : 10.0f;
-            float a = (num_count >= 2) ? nums[1] : 9.8f;
-            snprintf(out_reply, max_len, "FORCE (F=MA): F = %.2F N (MASS=%.1FKG, A=%.2FM/S^2)", m * a, m, a);
-            return;
-        }
-
-        // ==========================================
-        // 4. TRIGONOMETRY
-        // ==========================================
         if (contains(lower, "trig") || contains(lower, "triangle") || contains(lower, "hypotenuse") || contains(lower, "sin")) {
             float opp = (num_count >= 1) ? nums[0] : 3.0f;
             float adj = (num_count >= 2) ? nums[1] : 4.0f;
@@ -219,7 +294,7 @@ public:
         }
 
         // Fallback response
-        snprintf(out_reply, max_len, "TRY: 'QUAD 1 -5 6' | 'FORM 1 -4 3' | 'DISCRIM 1 2 5' | 'AREA 24 2'");
+        snprintf(out_reply, max_len, "TRY: 'FACTOR 2 5 -3' | 'CTS 1 6 -7' | 'RAD 72' | 'NATURE 1 2 5'");
     }
 };
 
