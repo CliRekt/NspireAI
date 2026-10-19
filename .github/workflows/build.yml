@@ -1,0 +1,26 @@
+name: Build NspireAI Binary
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: ndless/ndless-sdk:latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Build calculator binary
+        run: make
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: nspireai-build
+          path: nspireai.tns
