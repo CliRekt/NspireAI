@@ -52,6 +52,25 @@ struct Message {
     char text[128];
 };
 
+struct KeyMap {
+    t_key key;
+    char ch;
+};
+
+static const KeyMap key_mappings[] = {
+    {KEY_NSPIRE_A, 'A'}, {KEY_NSPIRE_B, 'B'}, {KEY_NSPIRE_C, 'C'}, {KEY_NSPIRE_D, 'D'},
+    {KEY_NSPIRE_E, 'E'}, {KEY_NSPIRE_F, 'F'}, {KEY_NSPIRE_G, 'G'}, {KEY_NSPIRE_H, 'H'},
+    {KEY_NSPIRE_I, 'I'}, {KEY_NSPIRE_J, 'J'}, {KEY_NSPIRE_K, 'K'}, {KEY_NSPIRE_L, 'L'},
+    {KEY_NSPIRE_M, 'M'}, {KEY_NSPIRE_N, 'N'}, {KEY_NSPIRE_O, 'O'}, {KEY_NSPIRE_P, 'P'},
+    {KEY_NSPIRE_Q, 'Q'}, {KEY_NSPIRE_R, 'R'}, {KEY_NSPIRE_S, 'S'}, {KEY_NSPIRE_T, 'T'},
+    {KEY_NSPIRE_U, 'U'}, {KEY_NSPIRE_V, 'V'}, {KEY_NSPIRE_W, 'W'}, {KEY_NSPIRE_X, 'X'},
+    {KEY_NSPIRE_Y, 'Y'}, {KEY_NSPIRE_Z, 'Z'},
+    {KEY_NSPIRE_0, '0'}, {KEY_NSPIRE_1, '1'}, {KEY_NSPIRE_2, '2'}, {KEY_NSPIRE_3, '3'},
+    {KEY_NSPIRE_4, '4'}, {KEY_NSPIRE_5, '5'}, {KEY_NSPIRE_6, '6'}, {KEY_NSPIRE_7, '7'},
+    {KEY_NSPIRE_8, '8'}, {KEY_NSPIRE_9, '9'},
+    {KEY_NSPIRE_SPACE, ' '}, {KEY_NSPIRE_PERIOD, '.'}, {KEY_NSPIRE_MINUS, '-'}
+};
+
 class NspireAI {
 private:
     char prompt_buffer[40] = "";
@@ -111,31 +130,17 @@ private:
     void handleKeyboard() {
         int len = strlen(prompt_buffer);
 
-        for (int k = KEY_NSPIRE_A; k <= KEY_NSPIRE_Z; k++) {
-            if (isKeyPressed(static_cast<e_key_index>(k))) {
+        size_t num_keys = sizeof(key_mappings) / sizeof(key_mappings[0]);
+        for (size_t i = 0; i < num_keys; i++) {
+            if (isKeyPressed(key_mappings[i].key)) {
                 if (len < 32) {
-                    prompt_buffer[len] = 'A' + (k - KEY_NSPIRE_A);
+                    prompt_buffer[len] = key_mappings[i].ch;
                     prompt_buffer[len + 1] = '\0';
                     msleep(130);
                     return;
                 }
             }
         }
-
-        if (isKeyPressed(KEY_NSPIRE_0) && len < 32) { prompt_buffer[len] = '0'; prompt_buffer[len+1] = '\0'; msleep(130); return; }
-        if (isKeyPressed(KEY_NSPIRE_1) && len < 32) { prompt_buffer[len] = '1'; prompt_buffer[len+1] = '\0'; msleep(130); return; }
-        if (isKeyPressed(KEY_NSPIRE_2) && len < 32) { prompt_buffer[len] = '2'; prompt_buffer[len+1] = '\0'; msleep(130); return; }
-        if (isKeyPressed(KEY_NSPIRE_3) && len < 32) { prompt_buffer[len] = '3'; prompt_buffer[len+1] = '\0'; msleep(130); return; }
-        if (isKeyPressed(KEY_NSPIRE_4) && len < 32) { prompt_buffer[len] = '4'; prompt_buffer[len+1] = '\0'; msleep(130); return; }
-        if (isKeyPressed(KEY_NSPIRE_5) && len < 32) { prompt_buffer[len] = '5'; prompt_buffer[len+1] = '\0'; msleep(130); return; }
-        if (isKeyPressed(KEY_NSPIRE_6) && len < 32) { prompt_buffer[len] = '6'; prompt_buffer[len+1] = '\0'; msleep(130); return; }
-        if (isKeyPressed(KEY_NSPIRE_7) && len < 32) { prompt_buffer[len] = '7'; prompt_buffer[len+1] = '\0'; msleep(130); return; }
-        if (isKeyPressed(KEY_NSPIRE_8) && len < 32) { prompt_buffer[len] = '8'; prompt_buffer[len+1] = '\0'; msleep(130); return; }
-        if (isKeyPressed(KEY_NSPIRE_9) && len < 32) { prompt_buffer[len] = '9'; prompt_buffer[len+1] = '\0'; msleep(130); return; }
-
-        if (isKeyPressed(KEY_NSPIRE_SPACE) && len < 32) { prompt_buffer[len] = ' '; prompt_buffer[len+1] = '\0'; msleep(130); return; }
-        if (isKeyPressed(KEY_NSPIRE_PERIOD) && len < 32) { prompt_buffer[len] = '.'; prompt_buffer[len+1] = '\0'; msleep(130); return; }
-        if (isKeyPressed(KEY_NSPIRE_MINUS) && len < 32) { prompt_buffer[len] = '-'; prompt_buffer[len+1] = '\0'; msleep(130); return; }
 
         if (isKeyPressed(KEY_NSPIRE_DEL) && len > 0) {
             prompt_buffer[len - 1] = '\0';
