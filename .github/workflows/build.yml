@@ -10,7 +10,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     container:
-      image: ndless/ndless-sdk:latest
+      image: bensuperpc/ndless:latest
 
     steps:
       - name: Checkout repository
