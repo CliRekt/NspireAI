@@ -12,6 +12,17 @@ extern "C" void _fini(void) {}
 #define SCREEN_H 240
 #define MAX_MESSAGES 6
 
+// RGB565 Aesthetic Color Palette
+#define COLOR_BG          0x0821  // Dark Charcoal / Slate
+#define COLOR_HEADER_BG   0x1885  // Dark Navy Header
+#define COLOR_CYAN        0x07FF  // Neon AI Cyan
+#define COLOR_GREEN       0x07E0  // Online Green
+#define COLOR_GOLD        0xFFE0  // User Text Gold
+#define COLOR_WHITE       0xFFFF  // Pure White
+#define COLOR_GRAY        0x7BEF  // Subtle Muted Gray
+#define COLOR_DARK_GRAY   0x31E6  // Placeholder Gray
+#define COLOR_INPUT_BG    0x10A2  // Input Box BG
+
 static uint16_t framebuffer[SCREEN_W * SCREEN_H];
 
 static const uint8_t font8x8[59][8] = {
@@ -103,6 +114,16 @@ private:
         }
     }
 
+    void fillRect(int x, int y, int w, int h, uint16_t color) {
+        for (int j = y; j < y + h; j++) {
+            for (int i = x; i < x + w; i++) {
+                if (i >= 0 && i < SCREEN_W && j >= 0 && j < SCREEN_H) {
+                    framebuffer[j * SCREEN_W + i] = color;
+                }
+            }
+        }
+    }
+
     void drawRect(int x, int y, int w, int h, uint16_t color) {
         for (int j = y; j < y + h; j++) {
             for (int i = x; i < x + w; i++) {
@@ -111,6 +132,14 @@ private:
                         framebuffer[j * SCREEN_W + i] = color;
                     }
                 }
+            }
+        }
+    }
+
+    void drawHLine(int x, int y, int w, uint16_t color) {
+        for (int i = x; i < x + w; i++) {
+            if (i >= 0 && i < SCREEN_W && y >= 0 && y < SCREEN_H) {
+                framebuffer[y * SCREEN_W + i] = color;
             }
         }
     }
@@ -163,8 +192,9 @@ private:
 
 public:
     NspireAI() {
-        addMessage("AI", "NSPIRE AI ASSISTANT READY.");
-        addMessage("AI", "ASK ALG II, PHYSICS OR UNITS!");
+        addMessage("AI", "WELCOME TO NSPIRE AI!");
+        addMessage("AI", "MATH, PHYSICS & CONVERSIONS");
+        addMessage("AI", "TYPE ANY PROMPT TO BEGIN...");
     }
 
     void run() {
@@ -173,25 +203,42 @@ public:
 
             handleKeyboard();
 
-            memset(framebuffer, 0, sizeof(framebuffer));
+            // Screen Background Fill
+            fillRect(0, 0, SCREEN_W, SCREEN_H, COLOR_BG);
 
-            drawText(10, 8, "=== NSPIRE AI ASSISTANT ===", 0x07E0);
+            // 1. Top Header Banner
+            fillRect(0, 0, SCREEN_W, 22, COLOR_HEADER_BG);
+            drawText(8, 7, "NSPIRE AI", COLOR_CYAN);
+            drawText(230, 7, "[ONLINE]", COLOR_GREEN);
+            drawHLine(0, 22, SCREEN_W, COLOR_CYAN);
 
-            int y_off = 25;
+            // 2. Chat History Render
+            int y_off = 32;
             for (int i = 0; i < msg_count; i++) {
-                uint16_t color = (strcmp(chat_history[i].sender, "YOU") == 0) ? 0xFFE0 : 0x07FF;
+                bool is_user = (strcmp(chat_history[i].sender, "YOU") == 0);
+                uint16_t sender_color = is_user ? COLOR_GOLD : COLOR_CYAN;
+                
                 char line[140];
                 snprintf(line, sizeof(line), "[%s] %s", chat_history[i].sender, chat_history[i].text);
-                drawText(10, y_off, line, color);
+                drawText(8, y_off, line, sender_color);
                 y_off += 24;
             }
 
-            drawRect(8, 185, 304, 25, 0xFFE0);
-            char display_p[48];
-            snprintf(display_p, sizeof(display_p), "> %s_", prompt_buffer);
-            drawText(15, 193, display_p, 0xFFFF);
+            // 3. Styled Input Box
+            fillRect(6, 180, 308, 26, COLOR_INPUT_BG);
+            drawRect(6, 180, 308, 26, COLOR_CYAN);
 
-            drawText(10, 222, "[ENTER] SEND  [DEL] ERASE  [ESC] EXIT", 0x7BEF);
+            if (strlen(prompt_buffer) == 0) {
+                drawText(14, 189, "> TYPE A QUESTION...", COLOR_DARK_GRAY);
+            } else {
+                char display_p[48];
+                snprintf(display_p, sizeof(display_p), "> %s_", prompt_buffer);
+                drawText(14, 189, display_p, COLOR_WHITE);
+            }
+
+            // 4. Bottom Navigation Footer Bar
+            drawHLine(0, 215, SCREEN_W, COLOR_DARK_GRAY);
+            drawText(10, 223, "[ENTER] SEND   [DEL] ERASE   [ESC] EXIT", COLOR_GRAY);
 
             lcd_blit(framebuffer, SCR_320x240_565);
             msleep(20);
